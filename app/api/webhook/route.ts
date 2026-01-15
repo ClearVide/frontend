@@ -25,19 +25,52 @@ export async function POST(req: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
 
     if (event.type === "checkout.session.completed") {
-        // Retrieve the subscription details if needed
-        // const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-
         if (!session?.metadata?.userId) {
             return new NextResponse("User id is required", { status: 400 });
         }
 
-        await clerk.users.updateUserMetadata(session.metadata.userId, {
-            publicMetadata: {
-                isPro: true,
-                hasPurchasedTemplates: true,
-            },
-        });
+        const plan = session.metadata.plan;
+
+        if (plan === "templates") {
+            // One-time purchase - only enable templates/watermark removal
+            await clerk.users.updateUserMetadata(session.metadata.userId, {
+                publicMetadata: {
+                    hasPurchasedTemplates: true,
+                },
+            });
+        } else if (plan === "pro") {
+            // Subscription - enable Pro features + watermark removal (included in Pro)
+            await clerk.users.updateUserMetadata(session.metadata.userId, {
+                publicMetadata: {
+                    isPro: true,
+                    hasPurchasedTemplates: true,
+                    stripeSubscriptionId: session.subscription,
+                },
+            });
+        } else {
+            // Legacy fallback - enable both
+            await clerk.users.updateUserMetadata(session.metadata.userId, {
+                publicMetadata: {
+                    isPro: true,
+                    hasPurchasedTemplates: true,
+                },
+            });
+        }
+    }
+
+    // Handle subscription cancellation
+    if (event.type === "customer.subscription.deleted") {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
+
+        if (userId) {
+            await clerk.users.updateUserMetadata(userId, {
+                publicMetadata: {
+                    isPro: false,
+                    stripeSubscriptionId: null,
+                },
+            });
+        }
     }
 
     return new NextResponse(null, { status: 200 });

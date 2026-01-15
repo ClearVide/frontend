@@ -12,6 +12,7 @@ import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { api } from "@/lib/api"
 import { useAuth } from "@clerk/nextjs"
+import { AIPolishDialog, AIPolishType } from "./ai-polish-dialog"
 
 export function ResumeForm() {
   const {
@@ -36,9 +37,17 @@ export function ResumeForm() {
   const [skillInput, setSkillInput] = useState("")
   const [languageInput, setLanguageInput] = useState("")
 
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
-  const [generatingJobId, setGeneratingJobId] = useState<string | null>(null)
-  const [isGeneratingSkills, setIsGeneratingSkills] = useState(false)
+  const [polishDialogState, setPolishDialogState] = useState<{
+    isOpen: boolean
+    type: AIPolishType
+    context: any
+    onSuccess: (result: any) => void
+  }>({
+    isOpen: false,
+    type: "summary",
+    context: {},
+    onSuccess: () => { },
+  })
 
   const handleAddSkill = () => {
     if (skillInput.trim() && !data.skills.includes(skillInput.trim())) {
@@ -80,25 +89,19 @@ export function ResumeForm() {
       return
     }
 
-    setIsGeneratingSummary(true)
-    try {
-      const jobTitles = data.employment.map((e) => e.jobTitle).filter(Boolean)
-      const prompt = `Write a professional resume summary for ${data.personalDetails.fullName}. Recent job titles: ${jobTitles.join(", ")}. Skills: ${data.skills.join(", ")}.`
-
-      const { text } = await api.post<{ text: string }>("/polish", {
-        text: prompt,
-        type: "summary"
-      })
-      updateSummary(text)
-    } catch (error: any) {
-      toast({
-        title: "Generation failed",
-        description: error.message || "Could not generate summary",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingSummary(false)
+    const jobTitles = data.employment.map((e) => e.jobTitle).filter(Boolean)
+    const content = {
+      name: data.personalDetails.fullName,
+      jobTitles: jobTitles,
+      skills: data.skills
     }
+
+    setPolishDialogState({
+      isOpen: true,
+      type: "summary",
+      context: content,
+      onSuccess: (refinedContent) => updateSummary(refinedContent)
+    })
   }
 
   const handleGenerateJobDescription = async (empId: string, jobTitle: string, company: string) => {
@@ -121,23 +124,18 @@ export function ResumeForm() {
       return
     }
 
-    setGeneratingJobId(empId)
-    try {
-      const prompt = `Write bullet points for a ${jobTitle} position at ${company}.`
-      const { text } = await api.post<{ text: string }>("/polish", {
-        text: prompt,
-        type: "experience"
-      }, token)
-      updateEmployment(empId, { description: text })
-    } catch (error: any) {
-      toast({
-        title: "Generation failed",
-        description: error.message || "Could not generate description",
-        variant: "destructive",
-      })
-    } finally {
-      setGeneratingJobId(null)
+    // We open the dialog.
+    const content = {
+      jobTitle: jobTitle,
+      company: company
     }
+
+    setPolishDialogState({
+      isOpen: true,
+      type: "experience",
+      context: content,
+      onSuccess: (refinedContent) => updateEmployment(empId, { description: refinedContent })
+    })
   }
 
   const handleSuggestSkills = async () => {
@@ -161,25 +159,21 @@ export function ResumeForm() {
       return
     }
 
-    setIsGeneratingSkills(true)
-    try {
-      const { suggestions } = await api.post<{ suggestions: string[] }>("/analyze", {
-        personalDetails: { jobTitle: jobTitles[0] }, // Backend expects jobTitle for analysis based on guide
-        skills: data.skills
-      }, token)
-
-      if (suggestions && Array.isArray(suggestions)) {
-        updateSkills([...data.skills, ...suggestions.filter((s: string) => !data.skills.includes(s))])
-      }
-    } catch (error: any) {
-      toast({
-        title: "Analysis failed",
-        description: error.message || "Could not suggest skills",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingSkills(false)
+    const content = {
+      jobTitles: jobTitles,
+      existingSkills: data.skills
     }
+
+    setPolishDialogState({
+      isOpen: true,
+      type: "skill-suggestions",
+      context: content,
+      onSuccess: (refinedContent) => {
+        if (refinedContent && Array.isArray(refinedContent)) {
+          updateSkills([...data.skills, ...refinedContent.filter((s: string) => !data.skills.includes(s))])
+        }
+      }
+    })
   }
 
 
@@ -332,12 +326,9 @@ export function ResumeForm() {
                   variant="ghost"
                   size="sm"
                   onClick={handleGenerateSummary}
-                  disabled={isGeneratingSummary}
                   className="text-xs h-7 gap-1.5 text-primary hover:text-primary"
                 >
-                  {isGeneratingSummary ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : !isPro ? (
+                  {!isPro ? (
                     <Crown className="w-3 h-3 text-amber-500" />
                   ) : (
                     <Sparkles className="w-3 h-3" />
@@ -442,12 +433,10 @@ export function ResumeForm() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleGenerateJobDescription(emp.id, emp.jobTitle, emp.company)}
-                        disabled={generatingJobId === emp.id || !emp.jobTitle}
+                        disabled={!emp.jobTitle}
                         className="text-xs h-7 gap-1.5 text-primary hover:text-primary"
                       >
-                        {generatingJobId === emp.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : !isPro ? (
+                        {!isPro ? (
                           <Crown className="w-3 h-3 text-amber-500" />
                         ) : (
                           <Sparkles className="w-3 h-3" />
@@ -590,12 +579,9 @@ export function ResumeForm() {
                   variant="outline"
                   size="sm"
                   onClick={handleSuggestSkills}
-                  disabled={isGeneratingSkills}
                   className="w-full gap-1.5 bg-transparent"
                 >
-                  {isGeneratingSkills ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : !isPro ? (
+                  {!isPro ? (
                     <Crown className="w-3.5 h-3.5 text-amber-500" />
                   ) : (
                     <Sparkles className="w-3.5 h-3.5" />
@@ -675,6 +661,14 @@ export function ResumeForm() {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      <AIPolishDialog
+        isOpen={polishDialogState.isOpen}
+        onOpenChange={(open) => setPolishDialogState(prev => ({ ...prev, isOpen: open }))}
+        type={polishDialogState.type}
+        context={polishDialogState.context}
+        onSuccess={polishDialogState.onSuccess}
+      />
     </div>
   )
 }

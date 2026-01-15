@@ -40,39 +40,78 @@ export function ResumeAnalysisDialog() {
             const token = await getToken()
             if (!token) return
 
-            // Construct prompt for analysis
-            const resumeContent = JSON.stringify(data)
-            const prompt = `Analyze this resume JSON data and provide a score out of 100 and a list of 3-5 specific improvements.
-      Format the response exactly as a JSON string: {"score": 85, "feedback": ["Improve summary", "Add more metrics"]}.
-      Resume Data: ${resumeContent}`
-
-            // We use the 'analyze' endpoint (or polish if analyze is not suitable, but analyze implies analysis)
-            // The backend integration guide says analyze returns gap analysis and suggestions.
-            // We'll adapt it or assume it returns text we can parse, or just use polish for raw text generation if analyze is strictly structured.
-            // Let's assume we can get text back and try to parse it, or just display the text if parsing fails.
-
-            const { text } = await api.post<{ text: string }>("/polish", {
-                text: prompt,
-                type: "analysis" // Custom type to signal backend bot
-            }, token)
-
-            try {
-                // Attempt to parse if the bot returns JSON as requested
-                const result = JSON.parse(text)
-                setAnalysis(result)
-            } catch (e) {
-                // Fallback if not JSON
-                setAnalysis({ score: 75, feedback: [text] })
+            // Map frontend data structure to backend expectation
+            const payload = {
+                personalDetails: {
+                    ...data.personalDetails,
+                    // Backend might expect jobTitle/targetRoles in personalDetails or separate?
+                    // Docs: "jobTitle", "targetRoles". Frontend has "jobTitle" in employment usually.
+                    // We'll pass what we have.
+                },
+                experience: data.employment.map(emp => ({
+                    company: emp.company,
+                    role: emp.jobTitle,
+                    duration: `${emp.startDate} - ${emp.endDate || 'Present'}`,
+                    bullets: emp.description ? emp.description.split('\n').filter(line => line.trim().length > 0) : []
+                })),
+                education: data.education.map(edu => ({
+                    institution: edu.institution,
+                    degree: edu.degree,
+                    duration: `${edu.startDate} - ${edu.endDate}`
+                })),
+                skills: data.skills
             }
 
+            // Call the external backend
+            const response = await api.post<{
+                summary: string;
+                gapAnalysis: string[];
+                proactiveSuggestions: string[];
+            }>("/analyze", payload, token)
+
+            // Calculate a synthetic score based on feedback count (fewer gaps = higher score)
+            // Base 100, deduct 5 for each gap.
+            const syntheticScore = Math.max(100 - (response.gapAnalysis.length * 5), 60)
+
+            // Combine gap analysis and suggestions for feedback display
+            const combinedFeedback = [
+                ...response.gapAnalysis,
+                ...response.proactiveSuggestions
+            ].slice(0, 5) // Limit to 5 items
+
+            setAnalysis({
+                score: syntheticScore,
+                feedback: combinedFeedback.length > 0 ? combinedFeedback : ["Great job! Your resume looks solid."]
+            })
+
+            toast({
+                title: "Analysis Complete",
+                description: "Your resume has been analyzed successfully.",
+            })
+
         } catch (error: any) {
+            console.error(error)
             toast({
                 title: "Analysis Failed",
-                description: "Could not analyze resume.",
+                description: "Could not analyze resume. Please try again.",
                 variant: "destructive",
             })
         } finally {
             setIsAnalyzing(false)
+        }
+    }
+
+    const handleUpgrade = async () => {
+        const token = await getToken()
+        if (!token) {
+            toast({ title: "Please sign in" })
+            return
+        }
+        try {
+            const { url } = await api.post<{ url: string }>("/checkout", { plan: "pro" }, token)
+            window.location.href = url
+        } catch (e) {
+            toast({ title: "Error", description: "Failed to start checkout", variant: "destructive" })
         }
     }
 
@@ -103,8 +142,8 @@ export function ResumeAnalysisDialog() {
                                 Upgrade to Pro to unlock detailed resume scoring and personalized improvement suggestions.
                             </p>
                         </div>
-                        <Button variant="default" className="bg-amber-600 hover:bg-amber-700">
-                            Upgrade Knowledge
+                        <Button onClick={handleUpgrade} variant="default" className="bg-amber-600 hover:bg-amber-700">
+                            Upgrade to Pro
                         </Button>
                     </div>
                 ) : !analysis ? (

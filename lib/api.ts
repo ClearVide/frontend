@@ -32,4 +32,9 @@ export const api = {
             method: "POST",
             body: JSON.stringify(body),
         }, token),
+    patch: <T>(endpoint: string, body: any, token?: string | null) =>
+        request<T>(endpoint, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+        }, token),
 }

@@ -48,27 +48,25 @@ export function CoverLetterGenerator() {
             const token = await getToken()
             if (!token) return
 
-            // Construct a rich prompt using resume data
-            const resumeContext = `
-        Name: ${data.personalDetails.fullName}
-        Skills: ${data.skills.join(", ")}
-        Experience: ${data.employment.map(e => `${e.jobTitle} at ${e.company} (${e.description})`).join("; ")}
-      `
+            // Build experience summary from employment
+            const experience = data.employment
+                .map(e => `${e.jobTitle} at ${e.company}`)
+                .join("; ")
 
-            const prompt = `Write a professional cover letter for a ${jobTitle} position at ${company}. 
-      Target Job Description: ${jobDescription}
-      
-      My Resume Details:
-      ${resumeContext}
-      
-      Keep it professional, engaging, and highlight relevant skills matching the job description.`
+            const content = JSON.stringify({
+                name: data.personalDetails.fullName,
+                position: jobTitle,
+                company: company,
+                skills: data.skills,
+                experience: experience
+            })
 
-            const { text } = await api.post<{ text: string }>("/polish", {
-                text: prompt,
-                type: "cover-letter" // Using 'polish' endpoint but with custom type/prompt
+            const { refinedContent } = await api.post<{ refinedContent: string }>("/polish", {
+                type: "cover-letter",
+                content
             }, token)
 
-            setGeneratedLetter(text)
+            setGeneratedLetter(refinedContent)
         } catch (error: any) {
             toast({
                 title: "Generation Failed",

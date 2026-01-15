@@ -34,19 +34,18 @@ export function Header({ currentView, onViewChange }: HeaderProps) {
   const { toast } = useToast()
   const [isDownloading, setIsDownloading] = useState(false)
 
-  const handleActivatePremium = async () => {
+  const handleBuyTemplates = async () => {
     const token = await getToken()
     if (!token) {
-      // Clerk handles redirect to sign in automatically if we want, or we can show a toast
       toast({
         title: "Authentication Required",
-        description: "Please sign in to upgrade to premium.",
+        description: "Please sign in to purchase.",
       })
       return
     }
 
     try {
-      const { url } = await api.post<{ url: string }>("/checkout", {}, token)
+      const { url } = await api.post<{ url: string }>("/checkout", { plan: "templates" }, token)
       window.location.href = url
     } catch (error: any) {
       toast({
@@ -56,6 +55,30 @@ export function Header({ currentView, onViewChange }: HeaderProps) {
       })
     }
   }
+
+  const handleSubscribePro = async () => {
+    const token = await getToken()
+    if (!token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to subscribe.",
+      })
+      return
+    }
+
+    try {
+      const { url } = await api.post<{ url: string }>("/checkout", { plan: "pro" }, token)
+      window.location.href = url
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Could not initiate checkout",
+        variant: "destructive",
+      })
+    }
+  }
+
+
 
 
   const handleDownload = async () => {
@@ -147,9 +170,15 @@ export function Header({ currentView, onViewChange }: HeaderProps) {
 
       <div className="flex items-center gap-2">
         {!hasPurchasedTemplates && (
-          <Button variant="outline" size="sm" onClick={handleActivatePremium} className="hidden sm:flex bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 hover:text-amber-700 border-amber-200">
-            <Sparkles className="w-4 h-4 mr-1.5 text-amber-500" />
-            Remove Watermark
+          <Button variant="outline" size="sm" onClick={handleBuyTemplates} className="hidden sm:flex bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 hover:text-teal-700 border-teal-200">
+            <Sparkles className="w-4 h-4 mr-1.5 text-teal-500" />
+            Watermark $9.99
+          </Button>
+        )}
+        {!isPro && (
+          <Button variant="outline" size="sm" onClick={handleSubscribePro} className="hidden sm:flex bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 hover:text-amber-700 border-amber-200">
+            <Crown className="w-4 h-4 mr-1.5 text-amber-500" />
+            Pro $9.99/mo
           </Button>
         )}
         <ResumeAnalysisDialog />

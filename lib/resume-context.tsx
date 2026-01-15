@@ -121,7 +121,11 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function checkPremium() {
-      if (!isClerkLoaded || !isSignedIn) return
+      if (!isClerkLoaded || !isSignedIn) {
+        setIsPro(false)
+        setHasPurchasedTemplates(false)
+        return
+      }
 
       try {
         const token = await getToken()
@@ -135,8 +139,8 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("hasPurchasedTemplates", String(user.hasPurchasedTemplates))
       } catch (error: any) {
         // If 401, it just means the session is invalid or expired, so treated as non-premium.
+        // We log it as info rather than error to avoid console noise for logged out state transitions.
         if (error.message?.includes("Unauthorized") || error.message?.includes("401")) {
-          console.log("User not authenticated for premium check")
           setIsPro(false)
           setHasPurchasedTemplates(false)
           return
