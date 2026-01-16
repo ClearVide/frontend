@@ -81,9 +81,11 @@ export default function AdminPage() {
 
             const { user: updatedUser } = await api.patch<{ user: User }>(`/admin/users/${userId}`, payload, token)
 
-            setUsers(prevUsers => prevUsers.map(u =>
-                u.id === userId ? updatedUser : u
-            ))
+            if (updatedUser) {
+                setUsers(prevUsers => prevUsers.map(u =>
+                    u?.id === userId ? updatedUser : u
+                ))
+            }
 
             toast({
                 title: "Updated",
@@ -167,32 +169,32 @@ export default function AdminPage() {
                             </thead>
                             <tbody className="divide-y divide-border">
                                 {users.map((u) => (
-                                    <tr key={u.id} className="hover:bg-muted/30">
+                                    <tr key={u?.id} className="hover:bg-muted/30">
                                         <td className="px-4 py-3">
                                             <div className="font-medium text-sm">
-                                                {u.firstName || u.lastName
-                                                    ? `${u.firstName || ''} ${u.lastName || ''}`.trim()
+                                                {u?.firstName || u?.lastName
+                                                    ? `${u?.firstName || ''} ${u?.lastName || ''}`.trim()
                                                     : 'No name'}
                                             </div>
-                                            <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 12)}...</div>
+                                            <div className="text-xs text-muted-foreground font-mono">{u?.id?.slice(0, 12)}...</div>
                                         </td>
-                                        <td className="px-4 py-3 text-sm">{u.email}</td>
+                                        <td className="px-4 py-3 text-sm">{u?.email}</td>
                                         <td className="px-4 py-3 text-center">
                                             <Switch
-                                                checked={u.isPro}
-                                                onCheckedChange={() => handleToggle(u.id, "isPro", u.isPro)}
-                                                disabled={updatingUserId === u.id}
+                                                checked={u?.isPro}
+                                                onCheckedChange={() => handleToggle(u?.id, "isPro", u?.isPro)}
+                                                disabled={updatingUserId === u?.id}
                                             />
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <Switch
-                                                checked={u.hasPurchasedTemplates}
-                                                onCheckedChange={() => handleToggle(u.id, "hasPurchasedTemplates", u.hasPurchasedTemplates)}
-                                                disabled={updatingUserId === u.id}
+                                                checked={u?.hasPurchasedTemplates}
+                                                onCheckedChange={() => handleToggle(u?.id, "hasPurchasedTemplates", u?.hasPurchasedTemplates)}
+                                                disabled={updatingUserId === u?.id}
                                             />
                                         </td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">
-                                            {new Date(u.createdAt).toLocaleDateString()}
+                                            {u?.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Unknown'}
                                         </td>
                                     </tr>
                                 ))}
