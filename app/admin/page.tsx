@@ -79,12 +79,10 @@ export default function AdminPage() {
                 hasPurchasedTemplates: field === "hasPurchasedTemplates" ? !currentValue : userToUpdate.hasPurchasedTemplates,
             }
 
-            await api.patch(`/admin/users/${userId}`, payload, token)
+            const { user: updatedUser } = await api.patch<{ user: User }>(`/admin/users/${userId}`, payload, token)
 
-            setUsers(users.map(u =>
-                u.id === userId
-                    ? { ...u, [field]: !currentValue }
-                    : u
+            setUsers(prevUsers => prevUsers.map(u =>
+                u.id === userId ? updatedUser : u
             ))
 
             toast({

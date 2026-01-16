@@ -37,7 +37,21 @@ export async function PATCH(
             },
         });
 
-        return NextResponse.json({ success: true });
+        // Fetch updated user to return
+        const updatedUser = await clerk.users.getUser(userId);
+
+        return NextResponse.json({
+            user: {
+                id: updatedUser.id,
+                email: updatedUser.emailAddresses[0]?.emailAddress || "No email",
+                firstName: updatedUser.firstName,
+                lastName: updatedUser.lastName,
+                createdAt: updatedUser.createdAt,
+                isPro: updatedUser.publicMetadata?.isPro === true,
+                hasPurchasedTemplates: updatedUser.publicMetadata?.hasPurchasedTemplates === true,
+                stripeSubscriptionId: updatedUser.publicMetadata?.stripeSubscriptionId || null,
+            }
+        });
     } catch (error) {
         console.error("[ADMIN_USER_PATCH]", error);
         return new NextResponse("Internal Error", { status: 500 });
