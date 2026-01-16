@@ -7,16 +7,23 @@ const nextConfig = {
     unoptimized: true,
   },
   async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
+    console.log("Proxying API requests to:", backendUrl);
     return [
       {
-        // Only proxy /api/polish to your Gemini backend
         source: "/api/polish",
-        destination: "http://localhost:8080/api/polish",
+        destination: `${backendUrl}/api/polish`,
       },
       {
         source: "/api/analyze",
-        destination: "http://localhost:8080/api/analyze",
+        destination: `${backendUrl}/api/analyze`,
       },
+      // Proxy all other /api requests to the backend (except internal Next.js API routes)
+      // Note: Next.js gives priority to existing pages/api routes, so /api/admin/... will still be handled by Next.js if it exists.
+      {
+        source: "/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
+      }
     ]
   },
 }
