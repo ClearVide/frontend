@@ -26,14 +26,7 @@ export async function POST(req: Request) {
                 payment_method_types: ["card"],
                 line_items: [
                     {
-                        price_data: {
-                            currency: "usd",
-                            product_data: {
-                                name: "Template Pack",
-                                description: "Watermark Removal - One-time Purchase",
-                            },
-                            unit_amount: 999, // $9.99
-                        },
+                        price: process.env.STRIPE_TEMPLATES_PRICE_ID,
                         quantity: 1,
                     },
                 ],
@@ -53,17 +46,7 @@ export async function POST(req: Request) {
                 payment_method_types: ["card"],
                 line_items: [
                     {
-                        price_data: {
-                            currency: "usd",
-                            product_data: {
-                                name: "Pro Membership",
-                                description: "AI Features & Unlimited Access - Monthly",
-                            },
-                            unit_amount: 999, // $9.99/month
-                            recurring: {
-                                interval: "month",
-                            },
-                        },
+                        price: process.env.STRIPE_PRO_PRICE_ID,
                         quantity: 1,
                     },
                 ],
